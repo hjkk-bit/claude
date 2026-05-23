@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>番茄闹钟</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #1a1a2e;
+  color: #eee;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+
+h1 {
+  font-size: 1.8rem;
+  margin-bottom: 1.5rem;
+  color: #e94560;
+  letter-spacing: 0.1em;
+}
+
+.container {
+  text-align: center;
+}
+
+.mode-tabs {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-bottom: 2rem;
+}
+
+.mode-tabs button {
+  padding: 0.5rem 1.2rem;
+  border: 2px solid #e94560;
+  background: transparent;
+  color: #e94560;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.3s;
+}
+
+.mode-tabs button.active {
+  background: #e94560;
+  color: #fff;
+}
+
+.mode-tabs button:hover {
+  background: rgba(233, 69, 96, 0.2);
+}
+
+.timer-ring {
+  position: relative;
+  width: 280px;
+  height: 280px;
+  margin: 0 auto 2rem;
+}
+
+.timer-ring svg {
+  transform: rotate(-90deg);
+}
+
+.timer-ring .bg {
+  stroke: #16213e;
+}
+
+.timer-ring .fg {
+  stroke: #e94560;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 1s linear;
+}
+
+.timer-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 3.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.controls {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+}
+
+.controls button {
+  padding: 0.7rem 2rem;
+  border: none;
+  border-radius: 999px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.3s;
+}
+
+.controls button:active {
+  transform: scale(0.95);
+}
+
+.btn-start {
+  background: #e94560;
+  color: #fff;
+  box-shadow: 0 4px 15px rgba(233, 69, 96, 0.4);
+}
+
+.btn-pause {
+  background: #f5a623;
+  color: #fff;
+  box-shadow: 0 4px 15px rgba(245, 166, 35, 0.4);
+}
+
+.btn-reset {
+  background: #16213e;
+  color: #eee;
+  border: 2px solid #555;
+}
+
+.stats {
+  display: flex;
+  gap: 2rem;
+  justify-content: center;
+  font-size: 0.9rem;
+  color: #aaa;
+}
+
+.stats span {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.stats .count {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #e94560;
+}
+
+.settings {
+  margin-top: 1.5rem;
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.settings label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: #aaa;
+}
+
+.settings input {
+  width: 50px;
+  padding: 0.3rem;
+  border: 1px solid #555;
+  border-radius: 6px;
+  background: #16213e;
+  color: #eee;
+  text-align: center;
+  font-size: 0.85rem;
+}
+
+.done-toast {
+  position: fixed;
+  top: 20px;
+  background: #e94560;
+  color: #fff;
+  padding: 1rem 2rem;
+  border-radius: 10px;
+  font-size: 1.1rem;
+  opacity: 0;
+  transform: translateY(-20px);
+  transition: all 0.4s;
+  pointer-events: none;
+}
+
+.done-toast.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+</style>
+</head>
+<body>
+
+<div class="done-toast" id="toast">!</div>
+
+<div class="container">
+  <h1> &#x1f345; 番茄闹钟</h1>
+
+  <div class="mode-tabs">
+    <button class="active" data-mode="work">专注</button>
+    <button data-mode="short">短休息</button>
+    <button data-mode="long">长休息</button>
+  </div>
+
+  <div class="timer-ring">
+    <svg width="280" height="280">
+      <circle class="bg" cx="140" cy="140" r="125" fill="none" stroke-width="10"/>
+      <circle class="fg" id="progress" cx="140" cy="140" r="125" fill="none" stroke-width="10"
+        stroke-dasharray="785.4" stroke-dashoffset="0"/>
+    </svg>
+    <div class="timer-text" id="display">25:00</div>
+  </div>
+
+  <div class="controls">
+    <button class="btn-start" id="btnStart">开始</button>
+    <button class="btn-reset" id="btnReset">重置</button>
+  </div>
+
+  <div class="stats">
+    <span>已完成 <span class="count" id="pomodoroCount">0</span> 个番茄</span>
+    <span>本组 <span class="count" id="groupCount">0</span>/4</span>
+  </div>
+
+  <div class="settings">
+    <label>专注 <input type="number" id="setWork" value="25" min="1" max="60"> 分钟</label>
+    <label>短休 <input type="number" id="setShort" value="5" min="1" max="30"> 分钟</label>
+    <label>长休 <input type="number" id="setLong" value="15" min="1" max="60"> 分钟</label>
+  </div>
+</div>
+
+<script>
+const CIRCUMFERENCE = 2 * Math.PI * 125;
+const $ = id => document.getElementById(id);
+
+let mode = 'work';
+let durations = { work: 25, short: 5, long: 15 };
+let totalSeconds = durations.work * 60;
+let remaining = totalSeconds;
+let interval = null;
+let running = false;
+let pomodoroCount = 0;
+let groupCount = 0;
+
+function formatTime(s) {
+  const m = Math.floor(s / 60);
+  return `${String(m).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+}
+
+function render() {
+  $('display').textContent = formatTime(remaining);
+  const offset = CIRCUMFERENCE * (1 - remaining / totalSeconds);
+  $('progress').style.strokeDashoffset = offset;
+  $('pomodoroCount').textContent = pomodoroCount;
+  $('groupCount').textContent = groupCount;
+
+  const colors = { work: '#e94560', short: '#0f3460', long: '#533483' };
+  $('progress').style.stroke = colors[mode];
+}
+
+function setMode(m) {
+  pause();
+  mode = m;
+  totalSeconds = durations[m] * 60;
+  remaining = totalSeconds;
+  document.querySelectorAll('.mode-tabs button').forEach(b => {
+    b.classList.toggle('active', b.dataset.mode === m);
+  });
+  render();
+}
+
+function start() {
+  if (running) return;
+  running = true;
+  $('btnStart').textContent = '暂停';
+  $('btnStart').className = 'btn-pause';
+  interval = setInterval(() => {
+    remaining--;
+    if (remaining <= 0) {
+      remaining = 0;
+      render();
+      onTimerEnd();
+      return;
+    }
+    render();
+  }, 1000);
+}
+
+function pause() {
+  running = false;
+  clearInterval(interval);
+  $('btnStart').textContent = '开始';
+  $('btnStart').className = 'btn-start';
+}
+
+function reset() {
+  pause();
+  remaining = totalSeconds;
+  render();
+}
+
+function onTimerEnd() {
+  pause();
+  notify();
+
+  if (mode === 'work') {
+    pomodoroCount++;
+    groupCount++;
+    if (groupCount >= 4) {
+      groupCount = 0;
+      showToast('完成4个番茄！去长休息吧');
+      setMode('long');
+    } else {
+      showToast('番茄完成！休息一下');
+      setMode('short');
+    }
+  } else {
+    showToast('休息结束，继续专注吧');
+    setMode('work');
+  }
+}
+
+function notify() {
+  if (Notification.permission === 'granted') {
+    new Notification('番茄闹钟', { body: mode === 'work' ? '专注结束！' : '休息结束！' });
+  } else if (Notification.permission !== 'denied') {
+    Notification.requestPermission();
+  }
+}
+
+function showToast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// Event listeners
+document.querySelectorAll('.mode-tabs button').forEach(b => {
+  b.addEventListener('click', () => setMode(b.dataset.mode));
+});
+
+$('btnStart').addEventListener('click', () => running ? pause() : start());
+$('btnReset').addEventListener('click', reset);
+
+['setWork', 'setShort', 'setLong'].forEach((id, i) => {
+  const key = ['work', 'short', 'long'][i];
+  $(id).addEventListener('change', () => {
+    durations[key] = Math.max(1, parseInt($(id).value) || 1);
+    if (mode === key) {
+      totalSeconds = durations[key] * 60;
+      remaining = totalSeconds;
+      render();
+    }
+  });
+});
+
+// Keyboard shortcut: Space to start/pause
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space' && e.target.tagName !== 'INPUT') {
+    e.preventDefault();
+    running ? pause() : start();
+  }
+});
+
+// Request notification permission
+if ('Notification' in window && Notification.permission === 'default') {
+  Notification.requestPermission();
+}
+
+render();
+</script>
+</body>
+</html>
